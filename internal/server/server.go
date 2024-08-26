@@ -9,7 +9,7 @@ import (
 
 // Run start the server on defined port
 func Run() error {
-	// load configurations from config file
+	// Load configurations from config file
 	config, err := configs.NewConfiguration()
 	if err != nil {
 		return fmt.Errorf("could not load configuration: %v", err)
@@ -18,21 +18,24 @@ func Run() error {
 	// Creates a new router
 	mux := http.NewServeMux()
 
-	// register health check endpoint
+	// Register health check endpoint
 	mux.HandleFunc("/ping", ping)
 
 	// Iterating through the configuration resource and registering them
 	// into the router.
 	for _, resource := range config.Resources {
-		fmt.Printf("Registering resource: %s\n", resource.Endpoint)
+		fmt.Printf("Registering resource: %s to %s \n", resource.Endpoint, resource.Destination)
+
 		url, _ := url.Parse(resource.Destination)
 		proxy := NewProxy(url)
-		mux.HandleFunc(resource.Endpoint, ProxyRequestHandler(proxy, url, resource.Endpoint))
+
+		handler := ProxyRequestHandler(proxy, url, resource.Endpoint)
+		mux.Handle(resource.Endpoint, http.StripPrefix(resource.Endpoint, http.HandlerFunc(handler)))
 	}
 
 	// Running proxy server
-	fmt.Printf("Server is running on %s:%s\n", config.Server.Host, config.Server.Port)
-	if err := http.ListenAndServe(config.Server.Host+":"+config.Server.Port, mux); err != nil {
+	fmt.Printf("Server is running on %s:%s\n", config.Host, config.Port)
+	if err := http.ListenAndServe(config.Host+":"+config.Port, mux); err != nil {
 		return fmt.Errorf("could not start the server: %v", err)
 	}
 
